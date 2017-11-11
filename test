@@ -19,19 +19,14 @@ def slurp(file_name):
         return f.read().strip()
 
 
-def get_pss(pid, stat = 'Pss'):
+def get_rss(pid, stat = 'Rss'):
     memory = slurp('/proc/%d/smaps_rollup' % pid)
     lines = memory.splitlines()
     def get_stat(stat_name):
         line = [l for l in lines if l.startswith(stat + ':')][0]
         return float(line.split()[1])/1024.0
 
-    rss = get_stat('Pss')
-    pss = get_stat('Pss')
-
-    print('\trss:%8.2f MB' % rss)
-    print('\tpss:%8.2f MB' % pss)
-    return get_stat(pss)
+    return get_stat(stat)
 
 
 def main():
@@ -49,7 +44,6 @@ def main():
 
     for config in configs:
         if config.skip:
-            print('skip test for %s' % (config.name,))
             continue
 
         server = tool('redis-server', config.name)
@@ -59,16 +53,23 @@ def main():
 
         client = run_cmd('cat %s | %s' % (TEST_SCRIPT, redis_cli)).join()
 
-        pss = get_pss(server_cmd.pid)
+        rss = get_rss(server_cmd.pid)
 
         if config.defrag:
-            print('should defrag + re-grab pss')
+            run_cmd('%s config set activedefrag yes' % redis_cli).join()
+            time.sleep(10) # give time to reach steady state
+            run_cmd('%s config set activedefrag no' % redis_cli).join()
+            time.sleep(2)
+            end_rss = get_rss(server_cmd.pid)
 
         server_cmd.end()
         server_cmd.join()
 
-        print('done test for %s (%.2f MB)' % (config.name, pss))
-    
+        if config.defrag:
+            print('%s\t%.3f\t%.3f' % (config.name, rss, end_rss))
+        else:
+            print('%s\t%.3f' % (config.name, rss))
+
 
 if __name__ == '__main__':
     sys.exit(main())
