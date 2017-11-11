@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import sys
 import time
@@ -12,10 +13,19 @@ from shutil import copyfile
 
 from config import configs
 from cmd import run_cmd
-
 from read_mesh_dump import open_data, MB
 
 TEST_SCRIPT = 'fragmentation.redis'
+
+ROOT_DIR = os.getcwd()
+
+
+def tool(cmd, config):
+    return path.join(ROOT_DIR, 'bin', '%s-%s' % (cmd, config))
+
+
+REDIS_CLI = tool('redis-cli', 'jemalloc')
+
 
 def slurp(file_name):
     with open(file_name, 'r') as f:
@@ -32,17 +42,15 @@ def get_rss(pid, stat = 'Rss'):
     return get_stat(stat)
 
 
-def main():
+def test_perf():
+    pass
+
+
+def test_frag():
     '''
     Given a file containing commands, run them against each
     redis-server, recording memory usage.
     '''
-    root_dir = os.getcwd()
-
-    tool = lambda tool, config: path.join(root_dir, 'bin', '%s-%s' % (tool, config))
-
-    # parse args
-
     redis_cli = tool('redis-cli', 'libc')
 
     for config in configs:
@@ -54,14 +62,14 @@ def main():
 
         time.sleep(.1) # sleep for 100 ms to give server time to start
 
-        client = run_cmd('cat %s | %s' % (TEST_SCRIPT, redis_cli)).join()
+        client = run_cmd('cat %s | %s' % (TEST_SCRIPT, REDIS_CLI)).join()
 
         rss = get_rss(server_cmd.pid)
 
         if config.defrag:
-            run_cmd('%s config set activedefrag yes' % redis_cli).join()
+            run_cmd('%s config set activedefrag yes' % REDIS_CLI).join()
             time.sleep(5) # give time to reach steady state
-            run_cmd('%s config set activedefrag no' % redis_cli).join()
+            run_cmd('%s config set activedefrag no' % REDIS_CLI).join()
             time.sleep(2)
             end_rss = get_rss(server_cmd.pid)
             if 'mesh' in config.name:
@@ -104,6 +112,23 @@ def main():
             print('%s\t%.3f\t%.3f' % (config.name, rss, end_rss))
         else:
             print('%s\t%.3f' % (config.name, rss))
+
+
+TESTS = {
+    'perf': test_perf,
+    'frag': test_frag,
+}
+
+def main():
+    parser = argparse.ArgumentParser(description='Test redis with different allocators.')
+    parser.add_argument('--test', nargs='+', help='specific tests to run')
+    args = parser.parse_args()
+
+    if not args.test:
+        args.test = sorted(TESTS.keys())
+
+    for test in args.test:
+        TESTS[test]()
 
 
 if __name__ == '__main__':
