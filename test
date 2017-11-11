@@ -18,6 +18,22 @@ def slurp(file_name):
     with open(file_name, 'r') as f:
         return f.read().strip()
 
+
+def get_pss(pid, stat = 'Pss'):
+    memory = slurp('/proc/%d/smaps_rollup' % pid)
+    lines = memory.splitlines()
+    def get_stat(stat_name):
+        line = [l for l in lines if l.startswith(stat + ':')][0]
+        return float(line.split()[1])/1024.0
+
+    rss = get_stat('Pss')
+    pss = get_stat('Pss')
+
+    print('\trss:%8.2f MB' % rss)
+    print('\tpss:%8.2f MB' % pss)
+    return get_stat(pss)
+
+
 def main():
     '''
     Given a file containing commands, run them against each
@@ -32,6 +48,10 @@ def main():
     redis_cli = tool('redis-cli', 'libc')
 
     for config in configs:
+        if config.skip:
+            print('skip test for %s' % (config.name,))
+            continue
+
         server = tool('redis-server', config.name)
         server_cmd = run_cmd('%s redis.conf' % server)
 
@@ -39,17 +59,15 @@ def main():
 
         client = run_cmd('cat %s | %s' % (TEST_SCRIPT, redis_cli)).join()
 
-        print('/proc/%d/smaps_rollup' % server_cmd.pid)
-        time.sleep(20)
+        pss = get_pss(server_cmd.pid)
 
-        memory = slurp('/proc/%d/smaps_rollup' % server_cmd.pid).decode('utf8')
-        pss_line = [l for l in memory.splitlines() if l.startswith('Pss:')]
+        if config.defrag:
+            print('should defrag + re-grab pss')
 
         server_cmd.end()
         server_cmd.join()
 
-        print('done test for %s\n\t%s' % (config.name, pss_line))
-        break
+        print('done test for %s (%.2f MB)' % (config.name, pss))
     
 
 if __name__ == '__main__':

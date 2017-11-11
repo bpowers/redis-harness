@@ -3,7 +3,6 @@ import subprocess
 
 class Cmd(threading.Thread):
     def __init__(self, cmd, effect='stdout'):
-        print('CMD: %s' % cmd)
         self.cmd = cmd
         self.effect = effect
         self.stdout = None
