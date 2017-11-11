@@ -4,6 +4,7 @@ import os
 import sys
 import time
 
+from collections import defaultdict
 from os import path
 from sys import stderr, argv
 from subprocess import Popen, PIPE
@@ -11,6 +12,8 @@ from shutil import copyfile
 
 from config import configs
 from cmd import run_cmd
+
+from read_mesh_dump import open_data, MB
 
 TEST_SCRIPT = 'fragmentation.redis'
 
@@ -57,13 +60,45 @@ def main():
 
         if config.defrag:
             run_cmd('%s config set activedefrag yes' % redis_cli).join()
-            time.sleep(10) # give time to reach steady state
+            time.sleep(5) # give time to reach steady state
             run_cmd('%s config set activedefrag no' % redis_cli).join()
             time.sleep(2)
             end_rss = get_rss(server_cmd.pid)
+            if 'mesh' in config.name:
+                run_cmd('kill -42 %d' % server_cmd.pid).join()
+                time.sleep(1)
 
         server_cmd.end()
         server_cmd.join()
+
+        if 'mesh' in config.name:
+            miniheap_lines = server_cmd.stderr.decode('utf8').splitlines()
+            size_classes = open_data(miniheap_lines)
+            sizes = sorted(size_classes.keys(), reverse=True)
+            total_size = 0
+            for size in sizes:
+                spans = size_classes[size]
+                total_size += sum([s.size * s.length for s in spans])
+
+            print('Total heap size: %.1f MiB' % (total_size * MB,))
+            for size in sizes:
+                spans = size_classes[size]
+                occ = 0.0
+                if len(spans) > 0:
+                    bitlen = spans[0].length
+                    bitcount = bitlen * len(spans)
+                    bits = 0
+                    counts = defaultdict(int)
+                    for span in spans:
+                        n = span.bitmap.count('1')
+                        bits += n
+                        counts[n] += 1
+                    occ = (float(bits) / bitcount) * 100.0
+                print('\t%5d: %d spans (avg occ: %.2f)' % (size, len(spans), occ))
+                if len(spans) > 0 and size == 256:
+                    for i in range(0, 16):
+                        pct = float(counts[i]) / len(spans)
+                        print('\t\t%2d: %5d  %.2f' % (i, counts[i], pct))
 
         if config.defrag:
             print('%s\t%.3f\t%.3f' % (config.name, rss, end_rss))
