@@ -1,0 +1,4 @@
+[submodule "redis"]
+	path = redis
+	url = https://github.com/bpowers/redis
+	branch = mesh
