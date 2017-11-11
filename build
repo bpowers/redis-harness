@@ -6,23 +6,11 @@ import sys
 from os import path
 from sys import stderr, argv
 from subprocess import Popen, PIPE
-from shutil import copyfile
+from shutil import copyfile, copymode
 
 from config import configs
+from cmd import run_cmd
 
-
-def run_cmd(cmd, effect='stdout'):
-    '''
-    Runs a shell command, waits for it to complete, and returns stdout.
-    '''
-    print('CMD: %s' % cmd)
-    with open('/dev/null', 'w') as dev_null:
-        call = Popen(cmd, shell=True, stdout=PIPE, stderr=dev_null)
-        ret, _ = call.communicate()
-        if effect == 'stdout':
-            return ret.decode('utf8')
-        else:
-            return call.returncode
 
 def main():
     '''
@@ -31,9 +19,11 @@ def main():
     os.makedirs('./bin', exist_ok=True)
     root_dir = os.getcwd()
 
-    run_cmd('git submodule update --init')
+    run_cmd('git submodule update --init').join()
 
     for config in configs:
+        print('building %s' % config.name)
+
         os.chdir(path.join(root_dir, 'redis', 'src'))
 
         # remove config from older builds
@@ -48,24 +38,27 @@ def main():
             ldflags = ''
 
         make_cmd = "make %s %s" % (config.use_flags, ldflags)
-        rc = run_cmd(make_cmd + ' clean', effect=None)
-        # if rc != 0:
-        #     print('make failed')
-        #     return
+        cmd = run_cmd(make_cmd + ' clean', effect=None).join()
+        if cmd.returncode != 0:
+            print('make failed')
+            return
 
-        result = run_cmd('git status')
+        status_cmd = run_cmd('git status').join()
+        result = status_cmd.stdout.decode('utf8')
         if 'working tree clean' not in result:
             print('tree dirty, exiting')
             return
 
-        rc = run_cmd(make_cmd + ' -j4', effect=None)
-        # if rc != 0:
-        #     print('make failed')
-        #     return
+        make_cmd = run_cmd(make_cmd + ' -j4', effect=None).join()
+        if make_cmd.returncode != 0:
+            print('make failed')
+            return
 
         # copy redis-server, redis-cli, redis-benchmark to /bin w/ suffix
         for f in ['redis-server', 'redis-cli', 'redis-benchmark']:
-            copyfile(f, path.join(root_dir, 'bin', '%s-%s' % (f, config.name)))
+            dst = path.join(root_dir, 'bin', '%s-%s' % (f, config.name))
+            copyfile(f, dst)
+            copymode(f, dst)
     
 
 if __name__ == '__main__':
