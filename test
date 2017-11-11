@@ -43,7 +43,29 @@ def get_rss(pid, stat = 'Rss'):
 
 
 def test_perf():
-    pass
+    redis_benchmark = tool('redis-benchmark', 'jemalloc')
+
+    for config in configs:
+        if config.skip:
+            continue
+
+        server = tool('redis-server', config.name)
+        server_cmd = run_cmd('%s redis.conf' % server)
+
+        time.sleep(.1) # sleep for 100 ms to give server time to start
+
+        start = time.time()
+
+        run_cmd(redis_benchmark).join()
+
+        end = time.time()
+
+        duration_secs = end - start
+
+        server_cmd.end()
+        server_cmd.join()
+
+        print('%s\t%.3f' % (config.name, duration_secs))
 
 
 def test_frag():
@@ -51,7 +73,6 @@ def test_frag():
     Given a file containing commands, run them against each
     redis-server, recording memory usage.
     '''
-    redis_cli = tool('redis-cli', 'libc')
 
     for config in configs:
         if config.skip:

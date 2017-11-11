@@ -11,8 +11,8 @@ class Config:
         self.defrag = defrag
 
 configs = [
-    # Config('libc',          'USE_JEMALLOC=no'),
-    # Config('jemalloc',      'USE_JEMALLOC=yes',         defrag=True),
+    Config('libc',          'USE_JEMALLOC=no'),
+    Config('jemalloc',      'USE_JEMALLOC=yes',         defrag=True),
     # Config('tcmalloc',      'USE_TCMALLOC_MINIMAL=yes'),
     Config('mesh',          'USE_MESH=yes',             defrag=True),
     # Config('mesh-alwayson', 'USE_JEMALLOC=no',          '-lmesh', skip=True),
