@@ -42,7 +42,7 @@ def get_rss(pid, stat = 'Rss'):
     return get_stat(stat)
 
 
-def test_perf():
+def test_perf(detailed_mesh_stats=False):
     redis_benchmark = tool('redis-benchmark', 'jemalloc')
 
     for config in configs:
@@ -68,7 +68,7 @@ def test_perf():
         print('%s\t%.3f' % (config.name, duration_secs))
 
 
-def test_frag():
+def test_frag(detailed_mesh_stats=False):
     '''
     Given a file containing commands, run them against each
     redis-server, recording memory usage.
@@ -100,7 +100,7 @@ def test_frag():
         server_cmd.end()
         server_cmd.join()
 
-        if 'mesh' in config.name:
+        if 'mesh' in config.name and detailed_mesh_stats:
             miniheap_lines = server_cmd.stderr.decode('utf8').splitlines()
             size_classes = open_data(miniheap_lines)
             sizes = sorted(size_classes.keys(), reverse=True)
@@ -142,14 +142,15 @@ TESTS = {
 
 def main():
     parser = argparse.ArgumentParser(description='Test redis with different allocators.')
-    parser.add_argument('--test', nargs='+', help='specific tests to run')
+    parser.add_argument('tests', nargs='*', default=sorted(TESTS.keys()), help='specific tests to run')
+    parser.add_argument('--mesh-details', action='store_const', const=True, help='Dump mesh internal details')
     args = parser.parse_args()
 
-    if not args.test:
-        args.test = sorted(TESTS.keys())
+    if args.mesh_details:
+        os.environ['MESH_BACKGROUND_THREAD'] = '1'
 
-    for test in args.test:
-        TESTS[test]()
+    for test in args.tests:
+        TESTS[test](detailed_mesh_stats=args.mesh_details)
 
 
 if __name__ == '__main__':
