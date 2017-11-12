@@ -13,8 +13,8 @@ class Config:
 configs = [
     Config('libc',          'USE_JEMALLOC=no'),
     Config('jemalloc',      'USE_JEMALLOC=yes',         defrag=True),
-    # Config('tcmalloc',      'USE_TCMALLOC_MINIMAL=yes'),
+    Config('tcmalloc',      'USE_TCMALLOC_MINIMAL=yes'),
     Config('mesh',          'USE_MESH=yes',             defrag=True),
     # Config('mesh-alwayson', 'USE_JEMALLOC=no',          '-lmesh', skip=True),
-    # Config('hoard',         'USE_JEMALLOC=no',          '-lhoard -L/usr/local/lib'),
+    Config('hoard',         'USE_JEMALLOC=no',          '-lhoard -L/usr/local/lib'),
 ]
