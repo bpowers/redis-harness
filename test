@@ -16,7 +16,7 @@ from cmd import run_cmd
 from read_mesh_dump import open_data, MB
 
 USE_MSTAT = True
-FREQ = 19
+FREQ = 127
 
 TEST_SCRIPT = 'fragmentation.redis'
 
@@ -75,11 +75,13 @@ def get_rss(pid, stat = 'Rss'):
     return get_stat(stat)
 
 
-def test_perf(detailed_mesh_stats=False):
+def test_perf(detailed_mesh_stats=False, enabled_configs=None):
     redis_benchmark = tool('redis-benchmark', 'jemalloc')
 
     for config in configs:
         if config.skip:
+            continue
+        if enabled_configs and config.name not in enabled_configs:
             continue
 
         server = tool('redis-server', config.name)
@@ -113,7 +115,7 @@ def getpid(name):
     return int(candidates[-1].split()[0])
 
 
-def test_frag(detailed_mesh_stats=False):
+def test_frag(detailed_mesh_stats=False, enabled_configs=None):
     '''
     Given a file containing commands, run them against each
     redis-server, recording memory usage.
@@ -121,6 +123,8 @@ def test_frag(detailed_mesh_stats=False):
 
     for config in configs:
         if config.skip:
+            continue
+        if enabled_configs and config.name not in enabled_configs:
             continue
 
         server = tool('redis-server', config.name)
@@ -144,9 +148,10 @@ def test_frag(detailed_mesh_stats=False):
             run_cmd('%s config set activedefrag no' % REDIS_CLI).join()
             time.sleep(1)
             end_rss = get_rss(server_pid)
-            if 'mesh' in config.name and detailed_mesh_stats:
-                run_cmd('kill -42 %d' % server_pid).join()
-                time.sleep(1)
+
+        if 'mesh' in config.name and detailed_mesh_stats:
+            run_cmd('kill -42 %d' % server_pid).join()
+            time.sleep(1)
 
         elapsed = time.time() - start
         remaining = TEST_DURATION - elapsed
@@ -164,11 +169,15 @@ def test_frag(detailed_mesh_stats=False):
             size_classes = open_data(miniheap_lines)
             sizes = sorted(size_classes.keys(), reverse=True)
             total_size = 0
+            live_size = 0
             for size in sizes:
                 spans = size_classes[size]
                 total_size += sum([s.size * s.length for s in spans])
+                live_size += sum([s.size * s.n_objects for s in spans])
+
 
             print('Total heap size: %.1f MiB' % (total_size * MB,))
+            print('Live  heap size: %.1f MiB' % (live_size * MB,))
             for size in sizes:
                 spans = size_classes[size]
                 occ = 0.0
@@ -178,7 +187,7 @@ def test_frag(detailed_mesh_stats=False):
                     bits = 0
                     counts = defaultdict(int)
                     for span in spans:
-                        n = span.bitmap.count('1')
+                        n = span.n_objects
                         bits += n
                         counts[n] += 1
                     occ = (float(bits) / bitcount) * 100.0
@@ -203,9 +212,10 @@ def main():
     global log
 
     parser = argparse.ArgumentParser(description='Test redis with different allocators.')
-    parser.add_argument('-v', action='store_const', const=True, help='print commit messages too')
-    parser.add_argument('tests', nargs='*', default=sorted(TESTS.keys()), help='specific tests to run')
+    parser.add_argument('-v', action='store_const', const=True, help='verbose logging')
+    parser.add_argument('--config', nargs='+', help='specific configs to run')
     parser.add_argument('--mesh-details', action='store_const', const=True, help='Dump mesh internal details')
+    parser.add_argument('tests', nargs='*', default=sorted(TESTS.keys()), help='specific tests to run')
     args = parser.parse_args()
 
     if args.v:
@@ -215,7 +225,7 @@ def main():
         os.environ['MESH_BACKGROUND_THREAD'] = '1'
 
     for test in args.tests:
-        TESTS[test](detailed_mesh_stats=args.mesh_details)
+        TESTS[test](detailed_mesh_stats=args.mesh_details, enabled_configs=args.config)
 
 
 if __name__ == '__main__':
