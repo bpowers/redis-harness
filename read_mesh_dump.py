@@ -14,6 +14,7 @@ class Span(object):
         self.size = obj['object-size']
         self.length = obj['length']
         self.bitmap = obj['bitmap']
+        self.n_objects = self.bitmap.count('1')
 
 
 def read_data(json_path):
