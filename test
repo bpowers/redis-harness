@@ -16,7 +16,7 @@ from cmd import run_cmd
 from read_mesh_dump import open_data, MB
 
 USE_MSTAT = True
-FREQ = 10
+FREQ = 19
 
 TEST_SCRIPT = 'fragmentation.redis'
 
@@ -155,7 +155,7 @@ def test_frag(detailed_mesh_stats=False):
             time.sleep(remaining)
 
         run_cmd('kill %d' % server_pid).join()
-        time.sleep(.1)
+        time.sleep(.3) # give mstat a chance to finish up
         server_cmd.end()
         server_cmd.join()
 
