@@ -65,7 +65,7 @@ def slurp(file_name):
         return f.read().strip()
 
 
-def get_rss(pid, stat = 'Rss'):
+def get_rss(pid, stat = 'Pss'):
     memory = slurp('/proc/%d/smaps_rollup' % pid)
     lines = memory.splitlines()
     def get_stat(stat_name):
@@ -140,6 +140,9 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
 
         client = run_cmd('cat %s | %s' % (TEST_SCRIPT, REDIS_CLI)).join()
 
+        time.sleep(.5)
+        run_cmd('%s dbsize' % REDIS_CLI).join()
+
         rss = get_rss(server_pid)
 
         if config.defrag:
@@ -156,8 +159,14 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
         elapsed = time.time() - start
         remaining = TEST_DURATION - elapsed
         if remaining > 0:
-            log(DEBUG, 'sleeping %d' % remaining)
+            log(DEBUG, 'sleeping %.2f sec' % remaining)
             time.sleep(remaining)
+        else:
+            log(DEBUG, 'aint nobody got time for sleeping')
+
+        _rss = get_rss(server_pid, stat='Rss')
+        _pss = get_rss(server_pid, stat='Pss')
+        log(WARN, 'rss/pss: %.2f/%.2f (%.2f)', _pss, _rss, rss)
 
         run_cmd('kill %d' % server_pid).join()
         time.sleep(.3) # give mstat a chance to finish up
@@ -170,17 +179,24 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
             sizes = sorted(size_classes.keys(), reverse=True)
             total_size = 0
             live_size = 0
+            meshed_size = 0
             for size in sizes:
                 spans = size_classes[size]
                 total_size += sum([s.size * s.length for s in spans])
                 live_size += sum([s.size * s.n_objects for s in spans])
+                meshed_size += sum([s.size * s.length * (s.n_meshes - 1) for s in spans])
 
 
             print('Total heap size: %.1f MiB' % (total_size * MB,))
             print('Live  heap size: %.1f MiB' % (live_size * MB,))
+            print('Meshed eap size: %.1f MiB' % (meshed_size * MB,))
             for size in sizes:
                 spans = size_classes[size]
                 occ = 0.0
+                span_total = sum([s.size * s.length for s in spans]) or 0.0
+                span_live = sum([s.size * s.n_objects for s in spans]) or 0.0
+                span_meshed = sum([s.size * s.length * (s.n_meshes - 1) for s in spans]) or 0.0
+
                 if len(spans) > 0:
                     bitlen = spans[0].length
                     bitcount = bitlen * len(spans)
@@ -191,7 +207,8 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
                         bits += n
                         counts[n] += 1
                     occ = (float(bits) / bitcount) * 100.0
-                print('\t%5d: %d spans (avg occ: %.2f)' % (size, len(spans), occ))
+                print('\t%5d: %d spans (avg occ: %.2f) -- %.2f/%.2f (%.2f) MiB' %
+                      (size, len(spans), occ, span_live * MB, span_total * MB, span_meshed * MB))
                 if len(spans) > 0 and size == 256:
                     for i in range(0, 16):
                         pct = float(counts[i]) / len(spans)
