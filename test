@@ -151,6 +151,10 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
             run_cmd('%s config set activedefrag no' % REDIS_CLI).join()
             time.sleep(1)
             end_rss = get_rss(server_pid)
+        else:
+            run_cmd('%s info' % REDIS_CLI).join()
+            time.sleep(5) # give time to reach steady state
+            run_cmd('%s info' % REDIS_CLI).join()
 
         if 'mesh' in config.name and detailed_mesh_stats:
             run_cmd('kill -42 %d' % server_pid).join()
@@ -201,14 +205,18 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
                     bitlen = spans[0].length
                     bitcount = bitlen * len(spans)
                     bits = 0
+                    meshes = defaultdict(int)
                     counts = defaultdict(int)
                     for span in spans:
                         n = span.n_objects
                         bits += n
                         counts[n] += 1
+                        meshes[span.n_meshes] += 1
                     occ = (float(bits) / bitcount) * 100.0
                 print('\t%5d: %d spans (avg occ: %.2f) -- %.2f/%.2f (%.2f) MiB' %
                       (size, len(spans), occ, span_live * MB, span_total * MB, span_meshed * MB))
+                for n in sorted(meshes.keys()):
+                    print('\t\t\t%d: %d' % (n, meshes[n]))
                 if len(spans) > 0 and size == 256:
                     for i in range(0, 16):
                         pct = float(counts[i]) / len(spans)
