@@ -17,4 +17,5 @@ configs = [
     Config('jemalloc',      'USE_JEMALLOC=yes',         defrag=True),
     Config('tcmalloc',      'USE_TCMALLOC_MINIMAL=yes'),
     Config('hoard',         'USE_JEMALLOC=no',          '-lhoard -L/usr/local/lib'),
+    Config('diehard',       'USE_JEMALLOC=no',          '-ldiehard -L/usr/local/lib'),
 ]
