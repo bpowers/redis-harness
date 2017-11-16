@@ -24,6 +24,73 @@ ROOT_DIR = os.getcwd()
 
 TEST_DURATION = 10 # seconds
 
+DELIM = '>>>>>>>>>>' # delimits different mesh dumps
+
+
+def print_distribution(miniheap_lines):
+    size_classes = open_data(miniheap_lines)
+    sizes = sorted(size_classes.keys(), reverse=True)
+
+    total_size = 0
+    live_size = 0
+    meshed_size = 0
+
+    for size in sizes:
+        spans = size_classes[size]
+        total_size += sum([s.size * s.length for s in spans])
+        live_size += sum([s.size * s.n_objects for s in spans])
+        meshed_size += sum([s.size * s.length * (s.n_meshes - 1) for s in spans])
+
+    print('Total heap size: %.1f MiB' % (total_size * MB,))
+    print('Live  heap size: %.1f MiB' % (live_size * MB,))
+    print('Meshed eap size: %.1f MiB' % (meshed_size * MB,))
+
+    for size in sizes:
+        spans = size_classes[size]
+        occ = 0.0
+        span_total = sum([s.size * s.length for s in spans]) or 0.0
+        span_live = sum([s.size * s.n_objects for s in spans]) or 0.0
+        span_meshed = sum([s.size * s.length * (s.n_meshes - 1) for s in spans]) or 0.0
+
+        if len(spans) > 0:
+            bitlen = spans[0].length
+            bitcount = bitlen * len(spans)
+            bits = 0
+            meshes = defaultdict(int)
+            counts = defaultdict(int)
+
+            for span in spans:
+                n = span.n_objects
+                bits += n
+                counts[n] += 1
+                meshes[span.n_meshes] += 1
+
+            occ = (float(bits) / bitcount) * 100.0
+
+            print('\t%5d: %d spans (avg occ: %.2f) -- %.2f/%.2f (%.2f) MiB' %
+                  (size, len(spans), occ, span_live * MB, span_total * MB, span_meshed * MB))
+
+            for n in sorted(meshes.keys()):
+                print('\t\t\t%d: %d' % (n, meshes[n]))
+
+            if len(spans) > 0 and size == 256:
+                for i in range(0, 16):
+                    pct = float(counts[i]) / len(spans)
+                    # print('\t\t%2d: %5d  %.2f' % (i, counts[i], pct))
+                    print('%d\t%d\t%.3f' % (i, counts[i], pct))
+
+
+def split_mesh_dump(lines):
+    parts = []
+    while DELIM in lines:
+        i = lines.index(DELIM)
+        if i > 0:
+            parts.append(lines[:i])
+        lines = lines[i+1:]
+    if lines:
+        parts.append(lines)
+    return parts
+
 
 # from rainbow
 def make_reporter(verbosity, quiet, filelike):
@@ -145,6 +212,9 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
 
         rss = get_rss(server_pid)
 
+        if 'mesh' in config.name and detailed_mesh_stats:
+            run_cmd('kill -42 %d' % server_pid).join()
+
         if config.defrag:
             run_cmd('%s config set activedefrag yes' % REDIS_CLI).join()
             time.sleep(5) # give time to reach steady state
@@ -179,48 +249,10 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
 
         if 'mesh' in config.name and detailed_mesh_stats:
             miniheap_lines = server_cmd.stderr.decode('utf8').splitlines()
-            size_classes = open_data(miniheap_lines)
-            sizes = sorted(size_classes.keys(), reverse=True)
-            total_size = 0
-            live_size = 0
-            meshed_size = 0
-            for size in sizes:
-                spans = size_classes[size]
-                total_size += sum([s.size * s.length for s in spans])
-                live_size += sum([s.size * s.n_objects for s in spans])
-                meshed_size += sum([s.size * s.length * (s.n_meshes - 1) for s in spans])
-
-
-            print('Total heap size: %.1f MiB' % (total_size * MB,))
-            print('Live  heap size: %.1f MiB' % (live_size * MB,))
-            print('Meshed eap size: %.1f MiB' % (meshed_size * MB,))
-            for size in sizes:
-                spans = size_classes[size]
-                occ = 0.0
-                span_total = sum([s.size * s.length for s in spans]) or 0.0
-                span_live = sum([s.size * s.n_objects for s in spans]) or 0.0
-                span_meshed = sum([s.size * s.length * (s.n_meshes - 1) for s in spans]) or 0.0
-
-                if len(spans) > 0:
-                    bitlen = spans[0].length
-                    bitcount = bitlen * len(spans)
-                    bits = 0
-                    meshes = defaultdict(int)
-                    counts = defaultdict(int)
-                    for span in spans:
-                        n = span.n_objects
-                        bits += n
-                        counts[n] += 1
-                        meshes[span.n_meshes] += 1
-                    occ = (float(bits) / bitcount) * 100.0
-                print('\t%5d: %d spans (avg occ: %.2f) -- %.2f/%.2f (%.2f) MiB' %
-                      (size, len(spans), occ, span_live * MB, span_total * MB, span_meshed * MB))
-                for n in sorted(meshes.keys()):
-                    print('\t\t\t%d: %d' % (n, meshes[n]))
-                if len(spans) > 0 and size == 256:
-                    for i in range(0, 16):
-                        pct = float(counts[i]) / len(spans)
-                        print('\t\t%2d: %5d  %.2f' % (i, counts[i], pct))
+            parts = split_mesh_dump(miniheap_lines)
+            log(DEBUG, 'len(parts): %d/%d/%d', len(parts), len(parts[0]), len(miniheap_lines))
+            print_distribution(parts[0])
+            print_distribution(parts[1])
 
         if config.defrag:
             print('%s\t%.3f\t%.3f' % (config.name, rss, end_rss))
