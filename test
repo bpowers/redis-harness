@@ -260,9 +260,46 @@ def test_frag(detailed_mesh_stats=False, enabled_configs=None):
             print('%s\t%.3f' % (config.name, rss))
 
 
+def test_fragperf(detailed_mesh_stats=False, enabled_configs=None):
+    '''
+    Given a file containing commands, run them against each
+    redis-server, recording memory usage.
+    '''
+
+    for config in configs:
+        if config.skip:
+            continue
+        if enabled_configs and config.name not in enabled_configs:
+            continue
+
+        server = tool('redis-server', config.name)
+        cmd = '%s redis.conf' % server
+        if USE_MSTAT:
+            cmd = 'mstat -o redis-lru-%s.tsv -freq %d -- %s' % (config.name, FREQ, cmd)
+
+        server_cmd = run_cmd(cmd)
+
+        start = time.time()
+        time.sleep(.1) # sleep for 100 ms to give server time to start
+        server_pid = getpid('redis-server')
+
+        start = time.time()
+        client = run_cmd('cat %s | %s' % (TEST_SCRIPT, REDIS_CLI)).join()
+        end = time.time()
+
+        print('%s\t%.3f' % (config.name, end - start))
+
+        run_cmd('kill %d' % server_pid).join()
+        time.sleep(.3) # give mstat a chance to finish up
+        server_cmd.end()
+        server_cmd.join()
+
+
+
 TESTS = {
     'perf': test_perf,
     'frag': test_frag,
+    'fragperf': test_fragperf,
 }
 
 def main():
