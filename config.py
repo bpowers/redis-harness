@@ -11,11 +11,11 @@ class Config:
         self.defrag = defrag
 
 configs = [
-    Config('mesh-alwayson', 'USE_JEMALLOC=no',          '-lmesh'),
+    Config('mesh-alwayson', 'USE_JEMALLOC=no',          '-Wl,--no-as-needed -lmesh'),
     Config('mesh',          'USE_MESH=yes',             defrag=True),
     Config('libc',          'USE_JEMALLOC=no'),
     Config('jemalloc',      'USE_JEMALLOC=yes',         defrag=True),
     Config('tcmalloc',      'USE_TCMALLOC_MINIMAL=yes'),
-    Config('hoard',         'USE_JEMALLOC=no',          '-lhoard -L/usr/local/lib'),
-    Config('diehard',       'USE_JEMALLOC=no',          '-ldiehard -L/usr/local/lib'),
+    Config('hoard',         'USE_JEMALLOC=no',          '-Wl,--no-as-needed -lhoard -L/usr/local/lib'),
+    Config('diehard',       'USE_JEMALLOC=no',          '-Wl,--no-as-needed -ldiehard -L/usr/local/lib'),
 ]
