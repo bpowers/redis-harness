@@ -1,5 +1,6 @@
 import threading
 import subprocess
+import os
 
 class Cmd(threading.Thread):
     def __init__(self, cmd, effect='stdout'):
@@ -15,7 +16,8 @@ class Cmd(threading.Thread):
         self.p = subprocess.Popen(self.cmd,
                                   shell=True,
                                   stdout=subprocess.PIPE,
-                                  stderr=subprocess.PIPE)
+                                  stderr=subprocess.PIPE,
+                                  env=os.environ.copy())
 
         self.stdout, self.stderr = self.p.communicate()
 
