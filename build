@@ -45,7 +45,7 @@ def main():
 
         status_cmd = run_cmd('git status').join()
         result = status_cmd.stdout.decode('utf8')
-        if 'working tree clean' not in result:
+        if 'not a git repository' not in result and 'working tree clean' not in result:
             print('tree dirty, exiting')
             return
 
