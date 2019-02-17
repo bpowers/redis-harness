@@ -1,6 +1,7 @@
 # docker build -t bpowers/mesh-artifact-1-redis .
 
 FROM bpowers/mesh:git-be630c4aeeef2103e4b6357550d02c3469a212df as mesh
+FROM bpowers/mstat:git-497eeeee07e6813ebc4d557d50ebe82bbfc05318 as mstat
 
 FROM ubuntu:18.04 as builder
 MAINTAINER Bobby Powers <bobbypowers@gmail.com>
@@ -35,6 +36,7 @@ RUN apt-get update && apt-get install -y \
  && update-alternatives --install /usr/bin/python python /usr/bin/python3 10 \
  && rm -rf /usr/local/lib/python3.6
 
+COPY --from=mstat /usr/local/bin/mstat /usr/local/bin/
 COPY --from=mesh /usr/local/lib/libmesh* /usr/local/lib/
 RUN ldconfig
 
