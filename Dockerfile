@@ -29,6 +29,12 @@ RUN ./build
 
 FROM ubuntu:18.04
 
+RUN apt-get update && apt-get install -y \
+  python3 \
+ && rm -rf /var/lib/apt/lists/* \
+ && update-alternatives --install /usr/bin/python python /usr/bin/python3 10 \
+ && rm -rf /usr/local/lib/python3.6
+
 COPY --from=mesh /usr/local/lib/libmesh* /usr/local/lib/
 RUN ldconfig
 
