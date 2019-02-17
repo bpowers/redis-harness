@@ -1,4 +1,7 @@
 # docker build -t bpowers/mesh-artifact-1-redis .
+
+FROM bpowers/mesh:git-be630c4aeeef2103e4b6357550d02c3469a212df as mesh
+
 FROM ubuntu:18.04 as builder
 MAINTAINER Bobby Powers <bobbypowers@gmail.com>
 
@@ -14,6 +17,9 @@ RUN apt-get update && apt-get install -y \
  && update-alternatives --install /usr/bin/python python /usr/bin/python3 10 \
  && rm -rf /usr/local/lib/python3.6
 
+COPY --from=mesh /usr/local/lib/libmesh* /usr/local/lib/
+RUN ldconfig
+
 WORKDIR /src
 
 COPY . .
@@ -23,8 +29,11 @@ RUN ./build
 
 FROM ubuntu:18.04
 
+COPY --from=mesh /usr/local/lib/libmesh* /usr/local/lib/
+RUN ldconfig
+
 WORKDIR /src
 
 COPY . .
 
-COPY --from=builder /src/bin /usr/local/lib/
+COPY --from=builder /src/bin /src
