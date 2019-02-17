@@ -36,4 +36,4 @@ WORKDIR /src
 
 COPY . .
 
-COPY --from=builder /src/bin /src
+COPY --from=builder /src/bin/* /src/bin/
