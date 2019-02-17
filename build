@@ -43,12 +43,6 @@ def main():
             print('make failed')
             return
 
-        status_cmd = run_cmd('git status').join()
-        result = status_cmd.stdout.decode('utf8')
-        if 'not a git repository' not in result and 'working tree clean' not in result:
-            print('tree dirty, exiting')
-            return
-
         make_cmd = run_cmd(make_cmd + ' -j4', effect=None).join()
         if make_cmd.returncode != 0:
             print('make failed')
