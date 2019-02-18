@@ -45,3 +45,5 @@ WORKDIR /src
 COPY . .
 
 COPY --from=builder /src/bin/* /src/bin/
+
+CMD [ "./test", "--data-dir=/data/1-redis" ]
