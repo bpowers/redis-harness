@@ -7,6 +7,7 @@ import time
 
 from collections import defaultdict
 from os import path
+from random import shuffle
 from sys import stderr, argv
 from subprocess import Popen, PIPE
 from shutil import copyfile
@@ -314,6 +315,7 @@ def main():
     parser.add_argument('--config', nargs='+', help='specific configs to run')
     parser.add_argument('--latency', action='store_const', const=True, default=False, help='gather latency metrics')
     parser.add_argument('--mesh-details', action='store_const', const=True, help='Dump mesh internal details')
+    parser.add_argument('--runs', type=int, default=5, help='Number of runs to do')
     parser.add_argument('tests', nargs='*', default=sorted(TESTS.keys()), help='specific tests to run')
     args = parser.parse_args()
 
@@ -327,7 +329,10 @@ def main():
         USE_MSTAT = False
 
     for test in args.tests:
-        TESTS[test](detailed_mesh_stats=args.mesh_details, enabled_configs=args.config, latency_stats=args.latency)
+        for i in range(args.runs):
+            # shuffle configs so that results aren't artifacts of order
+            shuffle(configs)
+            TESTS[test](detailed_mesh_stats=args.mesh_details, enabled_configs=args.config, latency_stats=args.latency)
 
 
 if __name__ == '__main__':
