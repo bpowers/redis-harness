@@ -4,3 +4,5 @@
 /*.tsv
 /*.Rhistory
 /latency
+/memory
+/speed
