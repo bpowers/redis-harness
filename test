@@ -325,6 +325,9 @@ TESTS = {
     'fragperf': test_fragperf,
 }
 
+# filter out perf, as it takes a long time and isn't reported in the paper
+DEFAULT_TESTS = [t for t in sorted(TESTS.keys()) if t != 'perf']
+
 def main():
     global log
 
@@ -335,7 +338,7 @@ def main():
     parser.add_argument('--mesh-details', action='store_const', const=True, help='Dump mesh internal details')
     parser.add_argument('--data-dir', type=str, default='.', help='where to store results')
     parser.add_argument('--runs', type=int, default=5, help='Number of runs to do')
-    parser.add_argument('tests', nargs='*', default=sorted(TESTS.keys()), help='specific tests to run')
+    parser.add_argument('tests', nargs='*', default=DEFAULT_TESTS, help='specific tests to run')
     args = parser.parse_args()
 
     if args.v:
